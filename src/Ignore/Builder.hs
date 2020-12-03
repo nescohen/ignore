@@ -46,11 +46,24 @@ runCheckerBuilder cb =
 
 registerGlobGit :: Monad m => T.Text -> CheckerBuilderT m ()
 registerGlobGit pat
+    | isRelativeDirectoryPattern pat =
+        registerGlob (pat <> "**")
+    | isDirectoryPattern pat =
+        registerGlob ("**/" <> pat <> "**")
     | not ("/" `T.isInfixOf` pat) =
         do registerGlob pat
            registerGlob ("**/" <> pat <> "/**")
            registerGlob ("**/" <> pat)
-    | otherwise = registerGlob pat
+    | otherwise =
+        do registerGlob pat
+           registerGlob (pat <> "/**")
+    where 
+      -- | path must be relative to location of .gitignore
+      isRelativeDirectoryPattern p =
+           "/" `T.isSuffixOf` p && "/" `T.isInfixOf` (T.takeEnd 1 p)
+      
+      -- | path may be in any subdirectory below .gitignore
+      isDirectoryPattern p = "/" `T.isSuffixOf` p
 
 registerGlob :: Monad m => T.Text -> CheckerBuilderT m ()
 registerGlob globPattern =
